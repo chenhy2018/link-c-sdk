@@ -30,12 +30,15 @@ else()
     add_definitions(-DDISABLE_OPENSSL)
 endif()
 
+if (WITH_MQTT)
+	link_directories("${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/wolfMQTT/output/${HOST}/lib")
+	link_directories("${CMAKE_CURRENT_BINARY_DIR}/../../libmqtt")
+endif()
+
 add_executable(testupload
     test.c
     flag.h
     flag.c
-    testpic.c
-    testseg.c
 )
 
 if(APPLE)
@@ -44,20 +47,20 @@ if(APPLE)
     if(DISABLE_OPENSSL)
             target_link_libraries(testupload tsuploader ${LIBFFMPEG} ghttp bz2 lzma iconv)
         else()
-            target_link_libraries(testupload tsuploader ${LIBFFMPEG} ghttp wolfssl bz2 lzma iconv)
+            target_link_libraries(testupload tsuploader ${LIBFFMPEG} ghttp mqtt wolfmqtt wolfssl bz2 lzma iconv)
         endif()
 else()
     if(CMAKE_TOOLCHAIN_FILE)
         if(DISABLE_OPENSSL)
             target_link_libraries(testupload tsuploader ${LIBFFMPEG} ghttp m pthread )
         else()
-            target_link_libraries(testupload tsuploader ${LIBFFMPEG} ghttp wolfssl m pthread )
+            target_link_libraries(testupload tsuploader ${LIBFFMPEG} ghttp mqtt wolfmqtt wolfssl m pthread )
         endif()
     else()
         if(DISABLE_OPENSSL)
             target_link_libraries(testupload tsuploader ${LIBFFMPEG} ghttp m pthread)
         else()
-            target_link_libraries(testupload tsuploader ${LIBFFMPEG} ghttp wolfssl m pthread)
+            target_link_libraries(testupload tsuploader ${LIBFFMPEG} ghttp mqtt wolfmqtt wolfssl m pthread)
         endif()
     endif()
 endif()

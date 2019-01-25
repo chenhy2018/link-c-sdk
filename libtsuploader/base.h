@@ -19,11 +19,23 @@
 #define IN
 #endif
 
+#define LINK_MQTT_SERVER "mqtt.qnlinking.com"
+#define LINK_MQTT_PORT 1883
+#define LINK_MQTT_KEEPALIVE 15
+
 #define LINK_MAX_APP_LEN 200
 #define LINK_MAX_BUCKET_LEN 63
 #define LINK_MAX_DEVICE_NAME_LEN 200
 #define LINK_MAX_SESSION_ID_LEN 20
 
+typedef struct {
+	void *pOpaque;
+        const char *pFilename;
+        int nFilenameLen;
+        const char *pBuf;
+        int nBuflen;
+}LinkPicture;
+ 
 typedef struct {
         const char **keys;
         int *keylens;
@@ -64,6 +76,12 @@ typedef enum {
         LINK_UPLOAD_CB_GETFRAMEPARAM = 3,
         LINK_UPLOAD_CB_GETTSPARAM = 4,
 } LinkUploadCbType;
+
+typedef enum {
+        LINK_PLAN_TYPE_NONE = 0,
+        LINK_PLAN_TYPE_24   = 1,
+        LINK_PLAN_TYPE_MOVE = 2,
+} LinkPlanType;
 
 typedef int (*LinkUploadParamCallback)(IN void *pOpaque, IN OUT LinkUploadParam *pParam, IN LinkUploadCbType cbtype);
 
@@ -156,6 +174,7 @@ typedef struct _LinkSession { // seg report info
         int64_t nSessionStartTime;
         int64_t nTsSequenceNumber;
         int64_t nSessionEndTime;
+        int64_t nLastTsEndTime;
         int nSessionEndResonCode;
         int isNewSessionStarted;
         
