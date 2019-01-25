@@ -43,7 +43,7 @@ void EventCallback(const void* _pInstance, IN int _nAccountId, IN int _nId,  IN 
     DevPrint(DEV_LOG_DBG, "%p id %d, reason  %s \n",_pInstance, _nId, _pReason);
     struct MqttInstance *instance = &gConnObj.stInstance;
 
-    instance = (struct MqttInstance *)_pInstance;
+//    instance = (struct MqttInstance *)_pInstance;
     if (gConnObj.stInstance == _pInstance) {
         gConnObj.nStatus = _nId;
         if (!strcmp(_pReason, "STATUC_CONNECT_TIMEOUT")
