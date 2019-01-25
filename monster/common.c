@@ -1,8 +1,9 @@
 //
 // Created by chenh on 2019/1/23.
 //
+#include <stdarg.h>
 #include "wolfssl/wolfcrypt/hmac.h"
-#include“ "urlsafe_b64.h"
+#include "urlsafe_b64.h"
 #include "common.h"
 
 void DevPrint(int level, const char *fmt, ...)
@@ -16,7 +17,7 @@ void DevPrint(int level, const char *fmt, ...)
 	va_start(args, fmt);
 	vsprintf(argsBuf, fmt, args);
 	printf("%s\n", argsBuf);
-	v_end(args);
+	va_end(args);
 
     }
 }
@@ -54,8 +55,33 @@ int HmacSha1(const char *pKey, int nKeyLen, const char  *pInput,
 
     return 0;
 }
+void GenerateUserName(char *username, int *len, char *dak)
+{
+    long timestamp = 0.0;
 
-static void GetTimestamp(char *_pTimestamp)
+    timestamp = (long)time(NULL);
+    sprintf(username, "dak=%s&timestamp=%ld&version=v1", dak, timestamp);
+    *len = strlen(username);
+}
+
+int GeneratePassword(char *username, int unlen, char *password, int *passlen, char *dsk)
+{
+    int ret = 0;
+    int sha1len = 20;
+    char sha1[UNIT_LEN] = {};
+
+    ret = HmacSha1(dsk, strlen(dsk), username, unlen, sha1, &sha1len);
+    if (ret != DEV_CODE_SUCCESS) {
+	DevPrint(DEV_LOG_ERR, "Hmacsha1 failed.\n");
+	return DEV_CODE_ERROR;
+    }
+
+    int len = urlsafe_b64_encode(sha1, 20, password, passlen);
+    *passlen = len;
+    return DEV_CODE_SUCCESS;
+}
+
+void GetTimestamp(char *_pTimestamp)
 {
     struct tm *tblock = NULL;
     struct timeval tv;

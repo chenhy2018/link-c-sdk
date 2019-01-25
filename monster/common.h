@@ -17,16 +17,25 @@
     const typeof(((type*)0)->member) *__mptr = (ptr);\
     (type *)((char *)__mptr - offsetof(type,member));})
 
+
+#define UNIT_LEN 256
+
 #define ARGSBUF_LEN 256
 #define DEV_LOG_ERR 1
 #define DEV_LOG_WARN 2
 #define DEV_LOG_DBG 4
 
+enum DEVICE_STATUS {
+    DEV_CODE_ERROR = -1,
+    DEV_CODE_SUCCESS = 0
+};
 
 void DevPrint(int level, const char *fmt, ...);
 void *DevMalloc(int size);
 void DevFree(void *ptr);
 int HmacSha1(const char *pKey, int nKeyLen, const char  *pInput,
 	     int nInputLen, char *pOutput, char *dsk);
+void GenerateUserName(char *username, int *len, char *dak);
+int GeneratePassword(char *username, int unlen, char *password, int *passlen, char *dak);
 
 #endif //LINK_C_SDK_COMMON_H

@@ -20,7 +20,7 @@ struct MqttConfig {
     enum MqttRole enRole;
 };
 
-struct Deviceconfig {
+struct DeviceConfig {
     char *conf;
     struct MqttConfig stMqttcfg;
 };
@@ -32,9 +32,6 @@ struct DeviceObj {
     struct ConnectObj *stConnObj;
 };
 
-enum DEVICE_STATUS {
-    DEV_CODE_ERROR = -1,
-    DEV_CODE_SUCCESS = 0
-};
+
 
 #endif //MONSTER_DEVICE_H

@@ -20,13 +20,22 @@ struct ConnectOperations {
     int (*Open)(struct ConnectObj *obj);
     void (*Close)(struct ConnectObj *obj);
     void (*RecvMessage)(struct ConnectObj *obj);
+    void (*RecvEvent)(struct ConnectObj *obj);
     void (*SendMessage)(struct ConnectObj *obj);
 };
 
 struct ConnectObj {
     struct MqttInstance *stInstance;   //mqtt实例
     struct ConnectOperations *stOpt;
-    enum ConnStatus enStatus;
+//    enum ConnStatus enStatus;
+    int nStatus;
+
+    char *sDak;
+    char *sDsk;
+    char *sServer;
+    int nPort;
+    int nKeepAlive;
+    char *sId;
 };
 
 void ConnectMqtt();
