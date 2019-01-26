@@ -32,7 +32,8 @@ struct ConnectObj {
 //    enum ConnStatus enStatus;
     int nStatus;
     int nSession;
-    struct RouterObj *stRouter;
+    pthread_t thAssign;
+//    struct RouterObj *stRouter;
 
     char *sDak;
     char *sDsk;
@@ -41,6 +42,9 @@ struct ConnectObj {
     int nKeepAlive;
     char *sId;
 };
+
+#define MQTT_IOCTRL_CMD_SETLEVEL 7000
+#define MQTT_IOCTRL_CMD_GETLEVEL 7001
 
 void DelConnectObj(struct ConnectObj *obj);
 struct ConnectObj *NewConnectObj(char *dak, char *dsk, void *cfg);

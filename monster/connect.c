@@ -34,6 +34,7 @@ struct MqttInstance
 }MqttInstance;
 
 struct ConnectObj gConnObj = {};
+static void StartAssign(struct ConnectObj *connObj);
 
 void MessageCallback(const void* _pInstance, IN int _nAccountId, IN const char* _pTopic, IN const char* _pMessage, IN size_t nLength)
 {
@@ -152,9 +153,11 @@ int ConnOpen(struct ConnectObj *obj)
         printf("connect succeed.\n");
         LinkMqttSubscribe(gConnObj.stInstance, "linking/v1/${appid}/${device}/rpc/request/+/");
         gConnObj.nSession = LinkInitIOCtrl("test", "ctrl001", gConnObj.stInstance);
+        printf("gConnObj.nSession:%d\n", gConnObj.nSession);
         LinkInitLog("test", "ctrl001", gConnObj.stInstance);
     }
     DelMqttOptions(mqttOptions);
+    StartAssign(&gConnObj);
 }
 
 void ConnClose(struct ConnectObj *obj)
@@ -216,7 +219,7 @@ void DelConnectObj(struct ConnectObj *obj)
     DevPrint(DEV_LOG_WARN, "DelConnectObj %p\n", obj);
 }
 
-static void AssignThread(void *pData)
+static void *AssignThread(void *pData)
 {
     struct ConnectObj *connObj = (struct ConnectObj *)pData;
     int ret = DEV_CODE_SUCCESS;
@@ -224,13 +227,33 @@ static void AssignThread(void *pData)
     char *cmdParam = (char *)DevMalloc(cmdParamMax);
     int cmd = 0;
 
-    while (connObj->nSession) {
+    DevPrint(DEV_LOG_ERR, "Create Assign thread.\n");
+    printf("connObj.nSession:%d\n", connObj->nSession);
+    while (connObj->nSession >= 0) {
+        printf("%s[%d] LinkRecvIOCtrl... ...\n", __func__, __LINE__);
         ret = LinkRecvIOCtrl(connObj->nSession,  &cmd,  cmdParam, &cmdParamMax, 1000);
         if (ret == MQTT_RETRY) {
             usleep(1000);
         } else if (ret == MQTT_SUCCESS) {
-            connObj->stRouter.stOpt->assign();
-        }
-
+            switch (cmd) {
+                case MQTT_IOCTRL_CMD_SETLEVEL:
+                    printf("MQTT_IOCTRL_CMD_SETLEVEL  set level :%d\n", *(int *)cmdParam);
+                    LinkSendIOResponse(connObj->nSession, 0, "ctrl", 4);
+                    break;
+                case MQTT_IOCTRL_CMD_GETLEVEL:
+                    printf("MQTT_IOCTRL_CMD_GETLEVEL,\n");
+                    LinkSendIOResponse(connObj->nSession, cmd, "1", 1);
+                    break;
+                default:
+                    break;
+            }
+        } else {
+            break;
+       }
    }
+}
+
+static void StartAssign(struct ConnectObj *connObj)
+{
+    pthread_create(&connObj->thAssign, NULL, AssignThread, connObj);
 }

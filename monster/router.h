@@ -7,6 +7,7 @@
 
 #include "connect.h"
 
+typedef int (*fn_Deal)(unsigned int cmd, void *args);
 enum RouterStatus {
     ROUTER_UNINIT = 0,
     ROUTER_START = 0,
@@ -37,5 +38,4 @@ enum MQTT_IOCTRL_CMD {
     MQTT_IOCTRL_GETLOGLEVEL
 };
 
-typedef int (*fn_Deal)(unsigned int cmd, void *args);
 #endif //LINK_C_SDK_ROUTER_H

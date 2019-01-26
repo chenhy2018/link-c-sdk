@@ -44,7 +44,7 @@ struct RouterObj *NewRouterObj(struct ConnectObj *connObj)
     }
     gRouter.nCount++;
     gRouter.stConnObj = connObj;
-    return gRouter;
+    return &gRouter;
 }
 
 void DelRouterObj(struct RouterObj *obj)

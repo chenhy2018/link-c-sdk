@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 #include "common.h"
+#include "connect.h"
 #include "device.h"
 
 
@@ -60,10 +61,12 @@ static void ParseArgs(int argc, char *argv[])
                 break;
             case 'p':
                 gDevObj.sDak = (char *)DevMalloc(strlen(optarg) + 1);
+                memset(gDevObj.sDak, 0, sizeof(optarg));
                 memcpy(gDevObj.sDak, optarg, strlen(optarg));
                 break;
             case 'u':
                 gDevObj.sDsk = (char *)DevMalloc(strlen(optarg) + 1);
+                memset(gDevObj.sDsk, 0, sizeof(optarg));
                 memcpy(gDevObj.sDsk, optarg, strlen(optarg));
                 break;
             case 'h':
@@ -86,8 +89,6 @@ static void ParseArgs(int argc, char *argv[])
         }
     }
 }
-
-
 
 struct DeviceObj *NewDeviceObj()
 {
@@ -113,11 +114,24 @@ void DelDeviceObj(struct DeviceObj *devObj)
         DevFree(devObj->stDevcfg.stMqttcfg.sId);
 }
 
+//void DevAssignThread(void *pData)
+//{
+//
+//
+//}
+
 int main(int argc, char *argv[])
 {
     ParseArgs(argc, argv);
 
-    struct MqttOptions *mqttOpt = NULL;
     struct DeviceObj *devObj = NewDeviceObj();
+    devObj->stConnObj = NewConnectObj(devObj->sDak, devObj->sDsk, &devObj->stDevcfg.stMqttcfg);
+    devObj->stConnObj->stOpt->SendMessage(devObj->stConnObj);
+    while(1) {
+        usleep(2000);
+    }
+    DelConnectObj(devObj->stConnObj);
+    DelDeviceObj(devObj);
 
+    return DEV_CODE_SUCCESS;
 }
