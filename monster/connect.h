@@ -2,6 +2,8 @@
 #define LINK_C_SDK_CONNECT_H
 
 
+
+
 struct ConnectStatus {
     void *pInstance;
     int nStatus;
@@ -29,6 +31,8 @@ struct ConnectObj {
     struct ConnectOperations *stOpt;
 //    enum ConnStatus enStatus;
     int nStatus;
+    int nSession;
+    struct RouterObj *stRouter;
 
     char *sDak;
     char *sDsk;
@@ -38,7 +42,7 @@ struct ConnectObj {
     char *sId;
 };
 
-void ConnectMqtt();
-void DisconnectMqtt();
+void DelConnectObj(struct ConnectObj *obj);
+struct ConnectObj *NewConnectObj(char *dak, char *dsk, void *cfg);
 
 #endif //LINK_C_SDK_CONNECT_H

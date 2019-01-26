@@ -7,34 +7,49 @@
 #include "common.h"
 #include "router.h"
 
-//5 个线程进行请求处理
-static int router_in()
-{
-    //接收消息
-    //推队列
+static struct RouterObj gRouter = {};
 
+static void RouterAssign(struct RouterObj *router, unsigned int cmd, char *args)
+{
+    switch (cmd) {
+        case MQTT_IOCTRL_GETLOGLEVEL:
+        case MQTT_IOCTRL_SETLOGLEVEL:
+            if (router->stRouterDealTab[cmd - MQTT_IOCTRL_OFFSET].Deal) {
+                router->stRouterDealTab[cmd - MQTT_IOCTRL_OFFSET].Deal(cmd, args);
+            }
+            break;
+        default: {
+            break;
+        }
+    }
 }
 
-static int router_out()
+void RouterRegisterDealIteam(unsigned int cmd, fn_Deal func, fn_Deal funcres)
 {
-    //取消息队列消息
-    //发送消息
+    gRouter.stRouterDealTab[cmd - MQTT_IOCTRL_OFFSET].cmd = cmd;
+    gRouter.stRouterDealTab[cmd - MQTT_IOCTRL_OFFSET].Deal = func;
 }
 
-int init_router()
+void RouterUnRegisterDealItem(unsigned int cmd)
 {
-
+    gRouter.stRouterDealTab[cmd - MQTT_IOCTRL_OFFSET].cmd = -1;
+    gRouter.stRouterDealTab[cmd - MQTT_IOCTRL_OFFSET].Deal = NULL;
 }
 
-struct RouterObj *NewRouterObj()
+struct RouterObj *NewRouterObj(struct ConnectObj *connObj)
 {
-    struct RouterObj *routerObj = (struct RouterObj *)DevMalloc(sizeof(struct RouterObj));
-
+    if (gRouter.stConnObj) {
+        gRouter.nCount++;
+        return &gRouter;
+    }
+    gRouter.nCount++;
+    gRouter.stConnObj = connObj;
+    return gRouter;
 }
 
 void DelRouterObj(struct RouterObj *obj)
 {
-    //结束线程
-    //销毁资源
-    DevFree(obj);
+    obj->nCount--;
+    if (!obj->nCount)
+        obj->stConnObj = NULL;
 }

@@ -33,9 +33,15 @@ enum DEVICE_STATUS {
 void DevPrint(int level, const char *fmt, ...);
 void *DevMalloc(int size);
 void DevFree(void *ptr);
-int HmacSha1(const char *pKey, int nKeyLen, const char  *pInput,
-	     int nInputLen, char *pOutput, char *dsk);
+//int HmacSha1(const char *pKey, int nKeyLen, const char  *pInput,
+//	     int nInputLen, char *pOutput, char *dsk);
 void GenerateUserName(char *username, int *len, char *dak);
 int GeneratePassword(char *username, int unlen, char *password, int *passlen, char *dak);
 
+
+//int HmacSha1(const char * pKey, int nKeyLen, const char * pInput, int nInputLen,
+//	     char *pOutput, char *dsk);
+void GetUserName(char *username, int *len, char *dak);
+int GetSign(char *_pInput, int _nInLen,
+		   char *_pOutput, int *_pOutLen, char *dsk);
 #endif //LINK_C_SDK_COMMON_H
