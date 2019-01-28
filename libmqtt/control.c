@@ -8,16 +8,32 @@
 #include "log.h"
 #include "cJSON/cJSON.h"
 
+#define MQTT_IOCTRL_RESP_TOPIC  "linking/v1/%s/%s/rpc/response/"
+#define MQTT_IOCTRL_REQ_TOPIC  "linking/v1/%s/%s/rpc/request/+/"
+
 struct _LinkIOCrtlInfo Session[10] = {0};
 struct _LinkIOCrtlInfo LogSession = {0};
+
+
+static void GetReqID(IN const char *_pTopic, OUT char *_pReqID)
+{
+        if (!_pTopic)
+                return;
+        sscanf(_pTopic, "%*[^/]/%*[^/]/%*[^/]/%*[^/]/%*[^/]/%*[^/]/%[^/]/", _pReqID);
+        printf("_pTopic : %s, _pReqID:%s\n", _pTopic, _pReqID);
+}
 
 void OnIOCtrlMessage(IN const void* _pInstance, IN int _nAccountId, IN const char* _pTopic, IN const char* _pMessage, IN size_t nLength)
 {
         Message *pMessage = (Message *) malloc(sizeof(Message));
         char* message = (char*) malloc(nLength);
-        if ( !pMessage || !message ) {
+        char *pReqID = (char *)malloc(strlen(_pTopic));
+        if ( !pMessage || !message  || !pReqID) {
                 return;
         }
+
+        GetReqID(_pTopic, pReqID);
+        pMessage->pReqID = pReqID;
         pMessage->nMessageID = -1;
 	int i;
         for (i = 0; i < 10; ++ i) {
@@ -29,7 +45,7 @@ void OnIOCtrlMessage(IN const void* _pInstance, IN int _nAccountId, IN const cha
         if (pMessage->nMessageID == -1) {
                 free(pMessage);
                 return;
-        }
+}
         memset(message, 0, nLength);
         memcpy(message, _pMessage, nLength);
         pMessage->pMessage = message;
@@ -58,9 +74,11 @@ int LinkInitIOCtrl(const char *_pAppId, const char *_pEncodeDeviceName, void *_p
                 return MQTT_ERR_NOMEM;
         }
         memset(Session[index].pubTopic, 0, sizeof(Session[index].pubTopic));
-        sprintf(Session[index].pubTopic, "/linking/v1/%s/%s/rpc/request", _pAppId, _pEncodeDeviceName);
+//        sprintf(Session[index].pubTopic, "/linking/v1/%s/%s/rpc/request", _pAppId, _pEncodeDeviceName);
+        sprintf(Session[index].pubTopic, MQTT_IOCTRL_RESP_TOPIC, _pAppId, _pEncodeDeviceName);
         memset(Session[index].subTopic, 0, sizeof(Session[index].subTopic));
-        sprintf(Session[index].subTopic, "/linking/v1/%s/%s/rpc/response/#", _pAppId, _pEncodeDeviceName);
+//        sprintf(Session[index].subTopic, "/linking/v1/%s/%s/rpc/response/#", _pAppId, _pEncodeDeviceName);
+        sprintf(Session[index].subTopic, MQTT_IOCTRL_REQ_TOPIC, _pAppId, _pEncodeDeviceName);
         Session[index].pInstance = _pInstance;
         Session[index].isUsed = true;
         int ret = LinkMqttSubscribe(_pInstance, Session[index].subTopic);
@@ -90,7 +108,7 @@ cJSON* CreateResponse(unsigned int _nIOErrorCode, const char *_pIOCtrlData, int 
         return json;
 }
 
-int LinkSendIOResponse(int nSession, unsigned int _nIOErrorCode, const char *_pIOCtrlData, int _nIOCtrlDataSize)
+int LinkSendIOResponse(int nSession, const char *_pReqID, unsigned int _nIOErrorCode, const char *_pIOCtrlData, int _nIOCtrlDataSize)
 {
         if (nSession >= MAX_SESSION_ID) {
                 return MQTT_ERR_INVAL;
@@ -103,13 +121,18 @@ int LinkSendIOResponse(int nSession, unsigned int _nIOErrorCode, const char *_pI
                 return MQTT_ERR_NOMEM;
         }
         char* string = cJSON_Print(json);
+        char tmptopic[128] = {};
+        memcpy(tmptopic, Session[nSession].pubTopic, strlen(Session[nSession].pubTopic));
+        memset(Session[nSession].pubTopic, 0, sizeof(Session[nSession].pubTopic));
+        sprintf(Session[nSession].pubTopic, "%s%s/", tmptopic, _pReqID);
+        printf("%s[%d] Response  topic:%s\n", Session[nSession].pubTopic);
         int ret = LinkMqttPublish(Session[nSession].pInstance, Session[nSession].pubTopic, strlen(string), string);
         free(string);
         cJSON_Delete(json);
         return ret;
 }
 
-int LinkRecvIOCtrl(int nSession, unsigned int *_pIOCtrlType, char *_pIOCtrlData, int *_nIOCtrlMaxDataSize, unsigned int _nTimeout)
+int LinkRecvIOCtrl(int nSession, char *_pReqID, unsigned int *_pIOCtrlType, char *_pIOCtrlData, int *_nIOCtrlMaxDataSize, unsigned int _nTimeout)
 {
         if (nSession >= MAX_SESSION_ID) {
                 return MQTT_ERR_INVAL;
@@ -132,7 +155,9 @@ int LinkRecvIOCtrl(int nSession, unsigned int *_pIOCtrlType, char *_pIOCtrlData,
                 return MQTT_ERR_NOMEM;
         }
         char * action = cJSON_Print(item_1);
-        *_pIOCtrlType = action[0] - '0';
+//        printf("strlen(action):%d\n", strlen(action));
+//        printf("action[0-3]: 0x%x   0x%x  0x%x  0x%x\n", action[0], action[1], action[2], action[3]);
+        *_pIOCtrlType = atoi(action);
         free(action);
         cJSON *item_2 = cJSON_GetObjectItem(json, "params");
         if (item_2 == NULL) {
@@ -143,6 +168,7 @@ int LinkRecvIOCtrl(int nSession, unsigned int *_pIOCtrlType, char *_pIOCtrlData,
         if (*_nIOCtrlMaxDataSize > strlen(params)) {
                 *_nIOCtrlMaxDataSize = strlen(params);
         }
+        memcpy(_pReqID, pMessage->pReqID, strlen(pMessage->pReqID));
         memcpy(_pIOCtrlData, params, *_nIOCtrlMaxDataSize);
         cJSON_Delete(json);
         free(params);
@@ -207,7 +233,8 @@ int LinkInitLog(const char *_pAppId, const char *_pEncodeDeviceName, void *_pIns
                 return MQTT_ERR_NOMEM;
         }
         memset(LogSession.pubTopic, 0, sizeof(LogSession.pubTopic));
-        sprintf(LogSession.pubTopic, "/linking/v1/%s/%s/log/", _pAppId, _pEncodeDeviceName);
+        memcpy(LogSession.pubTopic, "linking/v1/${appid}/${device}/stats",
+               sizeof("linking/v1/${appid}/${device}/stats"));
         LogSession.pInstance = _pInstance;
         LogSession.isUsed = true;
         pthread_create(&t, NULL, LinkLogThread, &LogSession);
