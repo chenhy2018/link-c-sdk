@@ -239,6 +239,7 @@ static void switchTs(FFTsMuxUploader *_pFFTsMuxUploader, int64_t nSysNanotime)
                 if (_pFFTsMuxUploader->pTsMuxCtx) {
                         if (nSysNanotime <= 0) {
                                 nSysNanotime = LinkGetCurrentNanosecond();
+                                LinkLogInfo("nSysNanotime %"PRId64"", nSysNanotime);
                         }
                         LinkReportTimeInfo tinfo;
                         getLinkReportTimeInfo(_pFFTsMuxUploader, &tinfo, nSysNanotime);
@@ -558,7 +559,7 @@ static int PushVideo(LinkTsMuxUploader *_pTsMuxUploader, const char * _pData, in
                                 avDiff = -avDiff;
                         }
                         if (avDiff > 500) {
-                                LinkLogWarn("av timestamp may not align to same timebase:cv:%"PRId64" la:%"PRId64"",
+                                LinkLogTrace("av timestamp may not align to same timebase:cv:%"PRId64" la:%"PRId64"",
                                             _nTimestamp, pFFTsMuxUploader->nLastAudioFrameTsForCheck);
                         }
                 }
@@ -677,6 +678,7 @@ int LinkPushPicture(IN LinkTsMuxUploader *_pTsMuxUploader,const char *pFilename,
 
 static int waitToCompleUploadAndDestroyTsMuxContext(void *_pOpaque)
 {
+        sleep(2);
         FFTsMuxContext *pTsMuxCtx = (FFTsMuxContext*)_pOpaque;
         
         if (pTsMuxCtx) {
@@ -892,7 +894,7 @@ static int updateSegmentId(void *_pOpaque, LinkSession* pSession,int64_t nTsStar
         
         int isSegIdChange = 0;
         int isSeqNumChange = 0;
-        if (pFFTsMuxUploader->remoteConfig.isValid) {
+        if (pFFTsMuxUploader->remoteConfig.nSessionDuration > 0) {
                 int64_t nDuration = (nCurSystime - pFFTsMuxUploader->uploadArgBak.nSegmentId_ - nCurTsDuration * 1000000);
                 if (pFFTsMuxUploader->remoteConfig.nSessionDuration <= nDuration / 1000000LL) {
                         LinkLogDebug("normal: update remote config");
@@ -993,6 +995,9 @@ int linkNewTsMuxUploader(LinkTsMuxUploader **_pTsMuxUploader, const LinkMediaArg
         memset(pFFTsMuxUploader, 0, sizeof(FFTsMuxUploader));
         memcpy(pFFTsMuxUploader->ak, _pUserUploadArg->pDeviceAk, _pUserUploadArg->nDeviceAkLen);
         memcpy(pFFTsMuxUploader->sk, _pUserUploadArg->pDeviceSk, _pUserUploadArg->nDeviceSkLen);
+        pFFTsMuxUploader->remoteConfig.nSessionDuration = 100000;
+        pFFTsMuxUploader->remoteConfig.nTsDuration = 4000;
+        pFFTsMuxUploader->remoteConfig.nSessionTimeout = 3000;
         
         int ret = 0;
         

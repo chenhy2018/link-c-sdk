@@ -32,6 +32,7 @@
 #include "httptools.h"
 #include "ota.h"
 #include "log2mqtt.h"
+#include "telnetd.h"
 
 /* global variable */
 App gIpc;
@@ -42,7 +43,7 @@ int GetFileSize( char *_pFileName)
     int size = 0;
     
     if( !fp ) {
-        DBG_ERROR("fopen file %s error\n", _pFileName );
+        //DBG_ERROR("fopen file %s error\n", _pFileName );
         return -1;
     }
 
@@ -117,7 +118,7 @@ int AlarmCallback( int alarm, void *data )
     int valuelens[1] = {4};
     metas.valuelens = valuelens;
 
-    if ( alarm == ALARM_MOTION_DETECT && gIpc.config.movingDetection ) {
+    if ( alarm == ALARM_MOTION_DETECT ) {
         //DBG_LOG("get event ALARM_MOTION_DETECT\n");
         LinkSessionMeta metas = {0};
         metas.len = 1;
@@ -137,7 +138,7 @@ int AlarmCallback( int alarm, void *data )
             LinkSetTsType(gIpc.stream[STREAM_SUB].uploader, &metas);
         }
         gIpc.detectMoving = alarm;
-    } else if ( alarm == ALARM_MOTION_DETECT_DISAPPEAR && gIpc.config.movingDetection ) {
+    } else if ( alarm == ALARM_MOTION_DETECT_DISAPPEAR ) {
         //DBG_LOG("get event ALARM_MOTION_DETECT_DISAPPEAR\n");
         gIpc.detectMoving = alarm;
         if ( gIpc.stream[STREAM_MAIN].uploader ) {
@@ -169,7 +170,7 @@ int AlarmCallback( int alarm, void *data )
         
         size = GetFileSize( (char*)data );
         if ( size < 0 ) {
-            DBG_ERROR("GetFileSize error\n");
+            //DBG_ERROR("GetFileSize error\n");
             return 0;
         }
         pBuf = malloc( size ); 
@@ -254,11 +255,28 @@ static void GetPicCallback (void *pOpaque,  const char *pFileName, int nFilename
 
     gettimeofday( &end, NULL );
     interval = GetTimeDiffMs( &start, &end );
-    DBG_LOG("capture jpeg %s interval %d\n", pFileName, interval );
+    //DBG_LOG("capture jpeg %s interval %d\n", pFileName, interval );
 
     gIpc.dev->captureJpeg( 0, 0, path, (char *)pFileName );
 
     start = end;
+}
+
+int tsToFile(const char *buffer, int size, void *userCtx, LinkMediaInfo info) {
+	static int64_t starttime = 0;
+	static int64_t endtime = 0;
+        DBG_LOG("tsfile callback:%"PRId64" %"PRId64" %"PRId64" --%d--", info.startTime, info.endTime, endtime,
+                info.startTime>endtime?1:0);
+	if (endtime > 0) {
+            if (info.startTime < endtime) {
+                DBG_LOG("time overlap assert:%"PRId64" %"PRId64"\n", endtime, info.startTime);
+                sleep(2);
+            }
+            assert(info.startTime > endtime);
+	}
+	starttime = info.startTime;
+	endtime = info.endTime;
+        return 0;
 }
 
 int _TsUploaderSdkInit( StreamChannel ch )
@@ -305,25 +323,7 @@ int _TsUploaderSdkInit( StreamChannel ch )
         DBG_LOG("CreateAndStartAVUploader error, ret = %d\n", ret );
         return ret;
     }
-
-    DBG_LOG("gIpc.config.movingDetection = %d\n", gIpc.config.movingDetection );
-    if ( !gIpc.config.movingDetection ) {
-        LinkSessionMeta metas = {0};
-        metas.len = 1;
-        char *keys[1] = {"type"};
-        metas.keys = (const char **)keys;
-        int keylens[1] = {4};
-        metas.keylens = keylens;
-        char *values[1] = {"move"};
-        metas.values = (const char **)values;
-        int valuelens[1] = {4};
-        metas.valuelens = valuelens;
-
-        if ( gIpc.stream[ch].uploader ) {
-            DBG_LOG("set meta data\n");
-            LinkSetTsType(gIpc.stream[ch].uploader, &metas);
-        }
-    }
+    LinkUploaderSetTsOutputCallback(gIpc.stream[ch].uploader, tsToFile, NULL);
 
     return 0;
 }
@@ -377,7 +377,6 @@ int WaitForNetworkOk()
             sleep(1);
         }
     }
-
     printf("finished to check network \n");
     return 0;
 }
@@ -446,6 +445,11 @@ int main()
     } else {
         logFile = gIpc.config.defaultLogFile;
     }
+
+    if ( fork() == 0 ) {
+        TelnetdProcess();
+    }
+
     MqttParam params;
     params.server = gIpc.config.mqtt_server;
     params.port = gIpc.config.mqtt_port;
@@ -484,9 +488,9 @@ int main()
         DBG_LOG(" toekn url : %s\n", gIpc.config.tokenUrl );
     }
 
+    LOGI("main process exit\n");
     CaptureDevDeinit();
     TsUploaderSdkDeInit();
-    LOGI("main process exit\n");
 
     return 0;
 }

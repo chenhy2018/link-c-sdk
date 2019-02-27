@@ -58,6 +58,9 @@ typedef struct {
     int mqtt_port;
 
     char *otaMode;
+    char *mqttOtaTopic;
+    char *mqttOutTopic;
+    char *mqttInTopic;
 } Config;
 
 struct cfg_struct;

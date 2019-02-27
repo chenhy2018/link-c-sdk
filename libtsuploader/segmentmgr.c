@@ -102,20 +102,28 @@ static int reportSegInfo(LinkSession *s , int idx, int rtype) {
         const LinkSessionMeta* smeta = segmentMgr.handles[idx].pSessionMeta;
         if (s->nSessionEndResonCode != 0) {
                 const char * reason = sReasonStr[s->nSessionEndResonCode];
+                if (s->nSessionEndTime <= 0){
+                        s->nSessionEndTime = s->nSessionStartTime + s->nAccSessionVideoDuration*1000000;
+                        LinkLogWarn("abnormal session:%s %"PRId64"", s->sessionId, s->nSessionEndTime);
+                }
                 
                 nBodyLen = sprintf(body, "{ \"session\": \"%s\", \"start\": %"PRId64", \"current\": %"PRId64", \"sequence\": %"PRId64","
                         " \"vd\": %"PRId64", \"ad\": %"PRId64", \"tvd\": %"PRId64", \"tad\": %"PRId64", \"end\":"
-                        " %"PRId64", \"endReason\": \"%s\"",
+                        " %"PRId64", \"endReason\": \"%s\",\"frameStatus\":%d",
                         s->sessionId, s->nSessionStartTime/1000000, LinkGetCurrentNanosecond()/1000000, s->nTsSequenceNumber,
                         s->nVideoGapFromLastReport, s->nAudioGapFromLastReport,
-			s->nAccSessionVideoDuration, s->nAccSessionAudioDuration, s->nSessionEndTime/1000000, reason);
-
+			s->nAccSessionVideoDuration, s->nAccSessionAudioDuration, s->nSessionEndTime/1000000, reason,
+                                   s->coverStatus);
+                segmentMgr.handles[idx].tmpSession.nAccSessionVideoDuration = 0;
+                segmentMgr.handles[idx].tmpSession.nAccSessionAudioDuration = 0;
+                segmentMgr.handles[idx].tmpSession.nSessionEndTime = 0;
+                segmentMgr.handles[idx].tmpSession.coverStatus = 0;
         } else {
                 nBodyLen = sprintf(body, "{ \"session\": \"%s\", \"start\": %"PRId64", \"current\": %"PRId64", \"sequence\": %"PRId64","
-                        " \"vd\": %"PRId64", \"ad\": %"PRId64", \"tvd\": %"PRId64", \"tad\": %"PRId64"",
+                        " \"vd\": %"PRId64", \"ad\": %"PRId64", \"tvd\": %"PRId64", \"tad\": %"PRId64",\"frameStatus\":%d",
                         s->sessionId, s->nSessionStartTime/1000000, LinkGetCurrentNanosecond()/1000000, s->nTsSequenceNumber,
                         s->nVideoGapFromLastReport, s->nAudioGapFromLastReport,
-                        s->nAccSessionVideoDuration, s->nAccSessionAudioDuration);
+                        s->nAccSessionVideoDuration, s->nAccSessionAudioDuration,  s->coverStatus);
         }
         
         if (smeta && smeta->len > 0) {
@@ -145,9 +153,18 @@ static int reportSegInfo(LinkSession *s , int idx, int rtype) {
         param.pSk = sk;
         param.nSkLen = sizeof(sk);
 
+        int getParamOk = 0;
         int ret = segmentMgr.handles[idx].getUploadParamCallback(segmentMgr.handles[idx].pGetUploadParamCallbackArg,
                                                                  &param, LINK_UPLOAD_CB_GETPARAM);
-        
+        if (ret != LINK_SUCCESS) {
+                if (ret == LINK_BUFFER_IS_SMALL) {
+                        LinkLogError("param buffer is too small. drop seg");
+                } else {
+                        LinkLogError("not get param yet:%d", ret);
+                }
+        } else {
+                getParamOk = 1;
+        }
         
         int nUrlLen = param.nSegUrlLen;
         reportHost[nUrlLen] = 0;
@@ -221,7 +238,7 @@ static void handleReportSegInfo(SegInfo *pSegInfo) {
         if (!checkShouldReport(&segmentMgr.handles[idx], &pSegInfo->session)) {
                 return;
         }
-        if (pSegInfo->session.nAccSessionDuration <= 0) {
+        if (pSegInfo->session.nAccSessionVideoDuration <= 0) {
                 LinkLogInfo("not report due to session duration is 0");
                 return;
         }
@@ -461,7 +478,7 @@ void LinkReleaseSegmentHandle(SegmentHandle *pSeg) {
 }
 
 int LinkUpdateSegment(SegmentHandle seg, const LinkSession *pSession) {
-        SegInfo segInfo;
+        SegInfo segInfo = {0};
         segInfo.handle = seg;
         segInfo.session = *pSession;
         /*

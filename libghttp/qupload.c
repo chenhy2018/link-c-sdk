@@ -279,6 +279,7 @@ static int linkUpload(const char *filepathOrBufer, int bufferLen, const char * u
         if (status == ghttp_error) {
                 if (ghttp_is_timeout(request)) {
                         snprintf(put_ret->error, sizeof(put_ret->error), "ghttp_process timeout[%s]", ghttp_get_error(request));
+                        put_ret->isTimeout = 1;
                 } else {
                         snprintf(put_ret->error, sizeof(put_ret->error), "%s", ghttp_get_error(request));
                         getReqidAndResponse(request, put_ret);
@@ -293,7 +294,7 @@ static int linkUpload(const char *filepathOrBufer, int bufferLen, const char * u
                 free(form_data);
         
         put_ret->code = ghttp_status_code(request);
-        if (put_ret->code / 100 == 2) {
+        if (put_ret->code == 200) {
                 ghttp_request_destroy(request);
                 return 0;
         }
@@ -301,7 +302,7 @@ static int linkUpload(const char *filepathOrBufer, int bufferLen, const char * u
         getReqidAndResponse(request, put_ret);
         ghttp_request_destroy(request);
         
-        return 0; //http request ok(maybe return 404, but http is ok)
+        return -6;
 }
 
 int LinkUploadBuffer(const char *buffer, int bufferLen, const char * upHost, const char *upload_token, const char *file_key,
